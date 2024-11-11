@@ -7,6 +7,7 @@
 #include "stats.hpp"
 #include <thread> // Multithreading library
 #include <vector> // Vecotr library
+#include <cassert> // Assert
 
 // $CXX -O3 -mavx matmul-assignment.cpp
 
@@ -124,6 +125,7 @@ int main(int argc, char *argv[])
   unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
   // n.b. these calls to new have no alignment specifications
   mat mres{new float[SZ*SZ],SZ},m{new float[SZ*SZ],SZ},id{new float[SZ*SZ],SZ};
+  mat mres_parallel{ new float[SZ * SZ],SZ };
   mat mres_simd{new float[SZ*SZ],SZ};
   using namespace std::chrono;
   using tp_t = time_point<high_resolution_clock>;
@@ -153,20 +155,25 @@ int main(int argc, char *argv[])
   // Timing Parallel Multiplication - LM
   int num_threads = 4; // Num of threads - LM
   t1 = high_resolution_clock::now();
-  matmul_parallel(mres, m, m, num_threads);
+  matmul_parallel(mres_parallel, m, m, num_threads);
   t2 = high_resolution_clock::now();
 
   d = duration_cast<microseconds>(t2 - t1).count();
   std::cout << "Parallel multiplication with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
+  
+  // Assert statement to check if both multiplications are the same.
+  assert(mres == mres_parallel);
 
   print_mat(m); // Print simple multiplication
   print_mat(m);
-  print_mat(mres); // Print result of parallel multiplication
+  print_mat(mres_parallel); // Print result of parallel multiplication
+
 
   const bool correct = mres_simd==mres;
   //assert(correct); // uncomment when you have implemented matmul_simd
 
   delete [] mres.data;
+  delete [] mres_parallel.data;
   delete [] mres_simd.data;
   delete [] m.data;
   delete [] id.data;
