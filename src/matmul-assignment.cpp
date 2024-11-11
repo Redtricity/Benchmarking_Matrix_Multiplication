@@ -45,7 +45,7 @@ struct mat
   }
 };
 
-// Multiplication function - LM
+// Simple multiplication function - LM
 void matmul(mat &mres, const mat &m1, const mat &m2)
 {
     // Multiplies and adds two Matrices
@@ -87,7 +87,7 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
     }
 }
 
-// SIMD - LM
+// SIMD Multiplication - LM
 void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
     // to do
     for (int i = 0; i < mres.sz; i++) { // Go through each rows - LM
@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
 
 
   const bool correct = mres_simd==mres;
-  //assert(correct); // uncomment when you have implemented matmul_simd
+  assert(correct); // uncomment when you have implemented matmul_simd
 
   delete [] mres.data;
   delete [] mres_parallel.data;
