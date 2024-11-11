@@ -59,7 +59,7 @@ void matmul(mat &mres, const mat &m1, const mat &m2)
   }
 }
 
-// Parallel Matrix Multiplication - LM
+//// Parallel Matrix Multiplication (Original without simd added) - LM
 void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
     int rows_per_thread = mres.sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
 
@@ -78,6 +78,52 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
                     }
                 }
             }
+            }));
+    }
+
+    // Joins all the threads
+    for (auto& thread : threads) {
+        thread.join();
+    }
+}
+
+// Parallel Matrix with SIMD Multiplication - LM
+void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threads) {
+    int rows_per_thread = mres.sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
+
+    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+
+    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
+        int start_row = t * rows_per_thread; // Thread Start row - LM 
+        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row - LM
+
+        //Creates threads to push to the vector
+        threads.push_back(std::thread([=, &mres, &m1, &m2]() {
+            for (int i = start_row; i < end_row; i++) { // Rows - LM
+                for (int j = 0; j < mres.sz; j++) { // Collumns - LM
+                    __m128 result = _mm_setzero_ps(); // Initilses the simd register
+
+                    for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
+                        __m128 m1_values = _mm_loadu_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                        //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+
+                        __m128 m2_values = _mm_set_ps(
+                            m2.data[(k + 3) * mres.sz + j],
+                            m2.data[(k + 2) * mres.sz + j],
+                            m2.data[(k + 1) * mres.sz + j],
+                            m2.data[k * mres.sz + j]
+                        );
+
+                        __m128 product = _mm_mul_ps(m1_values, m2_values); // Multiply the values
+
+                        result = _mm_add_ps(result, product); // Add the result to the current total
+                    }
+                    float res[4]; // Store the 4 numbers in result back in an array
+                    _mm_storeu_ps(res, result); // Move the SIMD values into an array called res
+                    mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
+                }
+            }
+
             }));
     }
 
@@ -114,7 +160,7 @@ void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
             mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
 
             // Debug: print the result for each element
-            std::cout << "mres[" << i << "][" << j << "] = " << mres.data[i * mres.sz + j] << std::endl;
+            //std::cout << "mres[" << i << "][" << j << "] = " << mres.data[i * mres.sz + j] << std::endl;
         } 
     }
 }
@@ -155,6 +201,7 @@ int main(int argc, char *argv[])
   // n.b. these calls to new have no alignment specifications
   mat mres{new float[SZ*SZ],SZ},m{new float[SZ*SZ],SZ},id{new float[SZ*SZ],SZ};
   mat mres_parallel{ new float[SZ * SZ],SZ };
+  mat mres_parallel_simd{ new float[SZ * SZ],SZ };
   mat mres_simd{new float[SZ*SZ],SZ};
   using namespace std::chrono;
   using tp_t = time_point<high_resolution_clock>;
@@ -180,23 +227,35 @@ int main(int argc, char *argv[])
   t2 = high_resolution_clock::now();
 
   d = duration_cast<microseconds>(t2-t1).count();
-  std::cout << " simd" << d << ' ' << "microseconds.\n";
+  std::cout << "Simd multiplication time: " << d << ' ' << "microseconds.\n";
 
-  // Timing Parallel Multiplication - LM
+  // Timing Parallel Multiplication (Original) - LM
   int num_threads = 4; // Num of threads - LM
   t1 = high_resolution_clock::now();
   matmul_parallel(mres_parallel, m, m, num_threads); // Parallel Multiplication - LM
   t2 = high_resolution_clock::now();
 
   d = duration_cast<microseconds>(t2 - t1).count();
-  std::cout << "Parallel multiplication with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
+  std::cout << "Parallel multiplication time with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
+
+  // Timing Parallel Multiplication with simd - LM
+  //int num_threads = 4; // Duplicate - LM
+  t1 = high_resolution_clock::now();
+  matmul_parallel_simd(mres_parallel_simd, m, m, num_threads); // Parallel Multiplication - LM
+  t2 = high_resolution_clock::now();
+
+  d = duration_cast<microseconds>(t2 - t1).count();
+  std::cout << "Parallel simd multiplication time with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
   
   // Assert statement to check if both multiplications are the same.
   assert(mres == mres_parallel);
+  assert(mres == mres_parallel_simd);
+  assert(mres == mres_simd);
 
   print_mat(m); // Print simple multiplication
   print_mat(mres_simd); // Print result of simd - LM
   print_mat(mres_parallel); // Print result of parallel multiplication - LM
+  print_mat(mres_parallel_simd); // Print result of parallel with simd multiplication - LM
 
 
   const bool correct = mres_simd==mres;
@@ -204,6 +263,7 @@ int main(int argc, char *argv[])
 
   delete [] mres.data;
   delete [] mres_parallel.data;
+  delete [] mres_parallel_simd.data;
   delete [] mres_simd.data;
   delete [] m.data;
   delete [] id.data;
