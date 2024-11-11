@@ -252,9 +252,21 @@ int main(int argc, char *argv[])
   assert(mres == mres_parallel_simd);
   assert(mres == mres_simd);
 
+  //Prints the matrix results - LM
+
+  std::cout << "Initial Matrix:" << std::endl;
   print_mat(m); // Print simple multiplication
+
+  std::cout << "Simple multiplication:" << std::endl;
+  print_mat(mres);
+
+  std::cout << "Simd:" << std::endl;
   print_mat(mres_simd); // Print result of simd - LM
+
+  std::cout << "Parallel:" << std::endl;
   print_mat(mres_parallel); // Print result of parallel multiplication - LM
+
+  std::cout << "Parallel with Simd:" << std::endl;
   print_mat(mres_parallel_simd); // Print result of parallel with simd multiplication - LM
 
 
