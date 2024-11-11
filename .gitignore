@@ -12,3 +12,6 @@ CMakeCache.txt
 
 # Ignore log files
 *.log
+
+# Ignore .vs folder
+.vs/

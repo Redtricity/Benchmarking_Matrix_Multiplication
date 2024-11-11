@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.18) 
 
 if (DEFINED ENV{SCE_ROOT_DIR})
   set(SCE_PS5_CMAKE "$ENV{SCE_ROOT_DIR}/Prospero/Tools/CMake/PS5.cmake")

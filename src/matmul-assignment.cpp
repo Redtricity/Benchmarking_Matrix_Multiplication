@@ -5,6 +5,8 @@
 #include <cassert>
 #include <immintrin.h>
 #include "stats.hpp"
+#include <thread> // Multithreading library
+#include <vector> // Vecotr library
 
 // $CXX -O3 -mavx matmul-assignment.cpp
 
@@ -18,16 +20,18 @@ size_t sceLibcHeapSize = SCE_LIBC_HEAP_SIZE_EXTENDED_ALLOC_NO_LIMIT; /* no upper
 #pragma clang diagnostic ignored "-Wc++17-extensions"
 #endif
 
+// Represents a Matrix - LM
 struct mat
 {
   float *data;
-  const size_t sz;
+  const size_t sz; // Matrix size - LM
 
   bool operator==(const mat &rhs) const
   {
     bool b_ret = true;
     const float tolerance = 0.1f;
 
+    // Checks if two matrices are equal - LM
     for (int i = 0; i < sz; i++) {
       for (int j = 0; j < sz; j++) {
         const float abs_diff = std::abs(this->data[i*sz+j] - rhs.data[i*sz+j]);
@@ -39,16 +43,45 @@ struct mat
   }
 };
 
+// Multiplication function - LM
 void matmul(mat &mres, const mat &m1, const mat &m2)
 {
-  for (int i = 0; i < mres.sz; i++) {
-    for (int j = 0; j < mres.sz; j++) {
+  for (int i = 0; i < mres.sz; i++) { // Rows - LM
+    for (int j = 0; j < mres.sz; j++) { // Collumns - LM
       mres.data[i*mres.sz+j] = 0;
       for (int k = 0; k < mres.sz; k++) {
-        mres.data[i*mres.sz+j] += m1.data[i*mres.sz+k] * m2.data[k*mres.sz+j];
+        mres.data[i*mres.sz+j] += m1.data[i*mres.sz+k] * m2.data[k*mres.sz+j]; // Multiplication and Addition - LM
       }
     }
   }
+}
+
+// Parallel Matrix Multiplication - LM
+void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
+    int rows_per_thread = mres.sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
+
+    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+
+    for (int t = 0; t < num_threads; t++) {
+        int start_row = t * rows_per_thread; // Thread Start row
+        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row
+
+        threads.push_back(std::thread([=, &mres, &m1, &m2]() {
+            for (int i = start_row; i < end_row; i++) {
+                for (int j = 0; j < mres.sz; j++) {
+                    mres.data[i * mres.sz + j] = 0;
+                    for (int k = 0; k < mres.sz; k++) {
+                        mres.data[i * mres.sz + j] += m1.data[i * mres.sz + k] * m2.data[k * mres.sz + j];
+                    }
+                }
+            }
+            }));
+    }
+
+    // Joins all the threads
+    for (auto& thread : threads) {
+        thread.join();
+    }
 }
 
 void matmul_simd(mat &mres, const mat &m1, const mat &m2) {
@@ -85,9 +118,10 @@ void init_mat(mat &m) {
   }
 }
 
+// Test multiplication function
 int main(int argc, char *argv[])
 {
-  unsigned int SZ = 1 << 3; // (1 << 10) == 1024
+  unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
   // n.b. these calls to new have no alignment specifications
   mat mres{new float[SZ*SZ],SZ},m{new float[SZ*SZ],SZ},id{new float[SZ*SZ],SZ};
   mat mres_simd{new float[SZ*SZ],SZ};
@@ -95,28 +129,39 @@ int main(int argc, char *argv[])
   using tp_t = time_point<high_resolution_clock>;
   tp_t t1, t2;
 
+  // Matrix description
   std::cout << "Each " << SZ << 'x' << SZ;
   std::cout << " matrix is " << sizeof(float)*SZ*SZ << " bytes.\n";
 
-  init_mat(m);
+  init_mat(m); // Initialise Matrix with sample values - LM
 
+  // Timing simple multiplication - LM
   t1 = high_resolution_clock::now();
   matmul(mres,m,m);
   t2 = high_resolution_clock::now();
 
   auto d = duration_cast<microseconds>(t2-t1).count();
-  std::cout << d << ' ' << "microseconds.\n";
+  std::cout << "Simple multiplication time: " << d << ' ' << "microseconds.\n";
 
   t1 = high_resolution_clock::now();
   matmul_simd(mres_simd,m,m);
   t2 = high_resolution_clock::now();
 
   d = duration_cast<microseconds>(t2-t1).count();
-  std::cout << d << ' ' << "microseconds.\n";
+  std::cout << " simd" << d << ' ' << "microseconds.\n";
 
+  // Timing Parallel Multiplication - LM
+  int num_threads = 4; // Num of threads - LM
+  t1 = high_resolution_clock::now();
+  matmul_parallel(mres, m, m, num_threads);
+  t2 = high_resolution_clock::now();
+
+  d = duration_cast<microseconds>(t2 - t1).count();
+  std::cout << "Parallel multiplication with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
+
+  print_mat(m); // Print simple multiplication
   print_mat(m);
-  print_mat(m);
-  print_mat(mres);
+  print_mat(mres); // Print result of parallel multiplication
 
   const bool correct = mres_simd==mres;
   //assert(correct); // uncomment when you have implemented matmul_simd
