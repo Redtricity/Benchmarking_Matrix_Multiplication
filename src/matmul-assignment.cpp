@@ -52,7 +52,7 @@ void matmul(mat &mres, const mat &m1, const mat &m2)
   for (int i = 0; i < mres.sz; i++) { // Rows - LM
     for (int j = 0; j < mres.sz; j++) { // Collumns - LM
       mres.data[i*mres.sz+j] = 0;
-      for (int k = 0; k < mres.sz; k++) {
+      for (int k = 0; k < mres.sz; k++) { // Inner - LM
         mres.data[i*mres.sz+j] += m1.data[i*mres.sz+k] * m2.data[k*mres.sz+j]; // Multiplication and Addition - LM
       }
     }
@@ -65,15 +65,15 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
 
     std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
 
-    for (int t = 0; t < num_threads; t++) {
-        int start_row = t * rows_per_thread; // Thread Start row
-        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row
+    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
+        int start_row = t * rows_per_thread; // Thread Start row - LM 
+        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row - LM
 
         threads.push_back(std::thread([=, &mres, &m1, &m2]() {
-            for (int i = start_row; i < end_row; i++) {
-                for (int j = 0; j < mres.sz; j++) {
+            for (int i = start_row; i < end_row; i++) { // Rows - LM
+                for (int j = 0; j < mres.sz; j++) { // Collumns - LM
                     mres.data[i * mres.sz + j] = 0;
-                    for (int k = 0; k < mres.sz; k++) {
+                    for (int k = 0; k < mres.sz; k++) { // Inner - LM
                         mres.data[i * mres.sz + j] += m1.data[i * mres.sz + k] * m2.data[k * mres.sz + j];
                     }
                 }
@@ -149,7 +149,6 @@ void init_mat(mat &m) {
   }
 }
 
-// Test multiplication function
 int main(int argc, char *argv[])
 {
   unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
@@ -196,8 +195,8 @@ int main(int argc, char *argv[])
   assert(mres == mres_parallel);
 
   print_mat(m); // Print simple multiplication
-  print_mat(mres_simd); // Print result of simd
-  print_mat(mres_parallel); // Print result of parallel multiplication
+  print_mat(mres_simd); // Print result of simd - LM
+  print_mat(mres_parallel); // Print result of parallel multiplication - LM
 
 
   const bool correct = mres_simd==mres;
