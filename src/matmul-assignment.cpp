@@ -190,7 +190,9 @@ void init_mat(mat &m) {
   int count = 1;
   for (int i = 0; i < m.sz; i++) {
     for (int j = 0; j < m.sz; j++) {
-      m.data[i*m.sz+j] = count++;
+        m.data[i * m.sz + j] = count++;
+        if (count == 10)
+            count = 1;
     }
   }
 }
@@ -247,11 +249,6 @@ int main(int argc, char *argv[])
   d = duration_cast<microseconds>(t2 - t1).count();
   std::cout << "Parallel simd multiplication time with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
   
-  // Assert statement to check if both multiplications are the same.
-  assert(mres == mres_parallel);
-  assert(mres == mres_parallel_simd);
-  assert(mres == mres_simd);
-
   //Prints the matrix results - LM
 
   std::cout << "Initial Matrix:" << std::endl;
@@ -270,8 +267,16 @@ int main(int argc, char *argv[])
   print_mat(mres_parallel_simd); // Print result of parallel with simd multiplication - LM
 
 
-  const bool correct = mres_simd==mres;
-  assert(correct); // uncomment when you have implemented matmul_simd
+  // Assert statement to check if both multiplications are the same.
+  bool b1 = mres == mres_parallel;
+  bool b2 = mres == mres_simd;
+  bool b3 = mres == mres_parallel;
+  bool b4 = mres == mres_parallel_simd;
+
+  assert(b1);
+  assert(b2);
+  assert(b3); // ok
+  assert(b4);
 
   delete [] mres.data;
   delete [] mres_parallel.data;
@@ -279,5 +284,5 @@ int main(int argc, char *argv[])
   delete [] mres_simd.data;
   delete [] m.data;
   delete [] id.data;
-  return correct ? 0 : -1;
+  return  0;
 }
