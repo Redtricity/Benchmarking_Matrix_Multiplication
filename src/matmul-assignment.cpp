@@ -25,7 +25,7 @@ size_t sceLibcHeapSize = SCE_LIBC_HEAP_SIZE_EXTENDED_ALLOC_NO_LIMIT; /* no upper
 // Represents a Matrix - LM
 struct mat
 {
-  float *data;
+  float *data; //Single float thing
   const size_t sz; // Matrix size - LM
 
   bool operator==(const mat &rhs) const
@@ -101,11 +101,11 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
         threads.push_back(std::thread([=, &mres, &m1, &m2]() {
             for (int i = start_row; i < end_row; i++) { // Rows - LM
                 for (int j = 0; j < mres.sz; j++) { // Collumns - LM
-                    __m128 result = _mm_setzero_ps(); // Initilses the simd register
+                    __m128 result = _mm_setzero_ps(); // Initilses the simd register, 128d or 255d
 
                     for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
                         __m128 m1_values = _mm_loadu_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                        //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                        //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register mm load pd?
 
                         __m128 m2_values = _mm_set_ps(
                             m2.data[(k + 3) * mres.sz + j],
@@ -197,7 +197,7 @@ void init_mat(mat &m) {
 
 int main(int argc, char *argv[])
 {
-  unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
+  unsigned int SZ = 1 << 6; // (1 << 10) == 1024 (Matrix size is 8 - LM)
   // n.b. these calls to new have no alignment specifications
   mat mres{new float[SZ*SZ],SZ},m{new float[SZ*SZ],SZ},id{new float[SZ*SZ],SZ};
   mat mres_parallel{ new float[SZ * SZ],SZ };
