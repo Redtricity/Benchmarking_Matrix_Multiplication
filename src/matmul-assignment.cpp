@@ -104,7 +104,7 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
                     __m128 result = _mm_setzero_ps(); // Initilses the simd register
 
                     for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                        __m128 m1_values = _mm_loadu_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                        __m128 m1_values = _mm_load_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
                         //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
                         __m128 m2_values = _mm_set_ps(
@@ -141,7 +141,7 @@ void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
             __m128 result = _mm_setzero_ps(); // Create SIMD Variable that has a starting value of 0
 
             for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                __m128 m1_values = _mm_loadu_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                __m128 m1_values = _mm_load_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
                 //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
                 __m128 m2_values = _mm_set_ps(
