@@ -116,10 +116,10 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
                         __m128d m2_d_values = _mm_cvtps_pd(m2_values);
                         __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
 
-                        __m128d result = _mm_add_pd(result, product); // Add the result to the current total
+                        result = _mm_add_pd(result, product); // Add the result to the current total
                     }
                     double res[4]; // Store the 4 numbers in result back in an array
-                    _mm_storeu_pd(res, result); // Move the SIMD values into an array called res
+                    _mm_store_pd(res, result); // Move the SIMD values into an array called res
                     mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
                 }
             }
@@ -150,14 +150,14 @@ void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
                     m2.data[(k + 1) * mres.sz + j],
                     m2.data[k * mres.sz + j]
                 );
-                //convertts m2 values to a __m128d (i couldnt find a double equivalent for set ps that took 4 arguments)
+                //converts m2 values to a __m128d (i couldnt find a double equivalent for set ps that took 4 arguments)
                 __m128d m2_d_values = _mm_cvtps_pd(m2_values); 
                 __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
 
                 result = _mm_add_pd(result, product); // Add the result to the current total 
             }
             double res[4]; // Store the 4 numbers in result back in an array
-            _mm_storeu_pd(res, result); // Move the SIMD values into an array called res
+            _mm_store_pd(res, result); // Move the SIMD values into an array called res
             mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
 
             // Debug: print the result for each element
@@ -192,7 +192,7 @@ void init_mat(mat &m) {
   for (int i = 0; i < m.sz; i++) {
     for (int j = 0; j < m.sz; j++) {
         m.data[i * m.sz + j] = count++;
-        if (count == 10)
+        if (count == 5)
             count = 1;
     }
   }
