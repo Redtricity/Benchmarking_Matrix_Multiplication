@@ -25,18 +25,18 @@ size_t sceLibcHeapSize = SCE_LIBC_HEAP_SIZE_EXTENDED_ALLOC_NO_LIMIT; /* no upper
 // Represents a Matrix - LM
 struct mat
 {
-  float *data;
+  double *data;
   const size_t sz; // Matrix size - LM
 
   bool operator==(const mat &rhs) const
   {
     bool b_ret = true;
-    const float tolerance = 0.1f;
+    const double tolerance = 0.1f;
 
     // Checks if two matrices are equal - LM
     for (int i = 0; i < sz; i++) {
       for (int j = 0; j < sz; j++) {
-        const float abs_diff = std::abs(this->data[i*sz+j] - rhs.data[i*sz+j]);
+        const double abs_diff = std::abs(this->data[i*sz+j] - rhs.data[i*sz+j]);
         b_ret = b_ret && (abs_diff < tolerance);
       }
     }
@@ -101,10 +101,10 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
         threads.push_back(std::thread([=, &mres, &m1, &m2]() {
             for (int i = start_row; i < end_row; i++) { // Rows - LM
                 for (int j = 0; j < mres.sz; j++) { // Collumns - LM
-                    __m128 result = _mm_setzero_ps(); // Initilses the simd register
+                    __m128d result = _mm_setzero_pd(); // Initilses the simd register
 
                     for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                        __m128 m1_values = _mm_load_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                        __m128d m1_values = _mm_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
                         //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
                         __m128 m2_values = _mm_set_ps(
@@ -113,13 +113,13 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
                             m2.data[(k + 1) * mres.sz + j],
                             m2.data[k * mres.sz + j]
                         );
+                        __m128d m2_d_values = _mm_cvtps_pd(m2_values);
+                        __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
 
-                        __m128 product = _mm_mul_ps(m1_values, m2_values); // Multiply the values
-
-                        result = _mm_add_ps(result, product); // Add the result to the current total
+                        __m128d result = _mm_add_pd(result, product); // Add the result to the current total
                     }
-                    float res[4]; // Store the 4 numbers in result back in an array
-                    _mm_storeu_ps(res, result); // Move the SIMD values into an array called res
+                    double res[4]; // Store the 4 numbers in result back in an array
+                    _mm_storeu_pd(res, result); // Move the SIMD values into an array called res
                     mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
                 }
             }
@@ -138,10 +138,10 @@ void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
     // to do
     for (int i = 0; i < mres.sz; i++) { // Go through each rows - LM
         for (int j = 0; j < mres.sz; j++) { // Go through each collumn - LM
-            __m128 result = _mm_setzero_ps(); // Create SIMD Variable that has a starting value of 0
+            __m128d result = _mm_setzero_pd(); // Create SIMD Variable that has a starting value of 0
 
             for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                __m128 m1_values = _mm_load_ps(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                __m128d m1_values = _mm_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
                 //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
                 __m128 m2_values = _mm_set_ps(
@@ -150,13 +150,14 @@ void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
                     m2.data[(k + 1) * mres.sz + j],
                     m2.data[k * mres.sz + j]
                 );
+                //convertts m2 values to a __m128d (i couldnt find a double equivalent for set ps that took 4 arguments)
+                __m128d m2_d_values = _mm_cvtps_pd(m2_values); 
+                __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
 
-                __m128 product = _mm_mul_ps(m1_values, m2_values); // Multiply the values
-
-                result = _mm_add_ps(result, product); // Add the result to the current total 
+                result = _mm_add_pd(result, product); // Add the result to the current total 
             }
-            float res[4]; // Store the 4 numbers in result back in an array
-            _mm_storeu_ps(res, result); // Move the SIMD values into an array called res
+            double res[4]; // Store the 4 numbers in result back in an array
+            _mm_storeu_pd(res, result); // Move the SIMD values into an array called res
             mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
 
             // Debug: print the result for each element
@@ -201,17 +202,17 @@ int main(int argc, char *argv[])
 {
   unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
   // n.b. these calls to new have no alignment specifications
-  mat mres{new float[SZ*SZ],SZ},m{new float[SZ*SZ],SZ},id{new float[SZ*SZ],SZ};
-  mat mres_parallel{ new float[SZ * SZ],SZ };
-  mat mres_parallel_simd{ new float[SZ * SZ],SZ };
-  mat mres_simd{new float[SZ*SZ],SZ};
+  mat mres{new double[SZ*SZ],SZ},m{new double[SZ*SZ],SZ},id{new double[SZ*SZ],SZ};
+  mat mres_parallel{ new double[SZ * SZ],SZ };
+  mat mres_parallel_simd{ new double[SZ * SZ],SZ };
+  mat mres_simd{new double[SZ*SZ],SZ};
   using namespace std::chrono;
   using tp_t = time_point<high_resolution_clock>;
   tp_t t1, t2;
 
   // Matrix description
   std::cout << "Each " << SZ << 'x' << SZ;
-  std::cout << " matrix is " << sizeof(float)*SZ*SZ << " bytes.\n";
+  std::cout << " matrix is " << sizeof(double)*SZ*SZ << " bytes.\n";
 
   init_mat(m); // Initialise Matrix with sample values - LM
 
