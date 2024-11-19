@@ -2,14 +2,13 @@
 #include <iomanip>
 #include <cstring>
 #include <chrono>
-#include <cassert>
-#include <immintrin.h>
-#include "stats.hpp"
 #include <thread> // Multithreading library
 #include <vector> // Vecotr library
 #include <cassert> // Assert
 #include <immintrin.h> // SIMD
-
+#include <numeric>
+#include <cmath>
+#include "stats.hpp"
 // $CXX -O3 -mavx matmul-assignment.cpp
 
 #ifdef __PROSPERO__
@@ -93,34 +92,59 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
 
     std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
 
+    mat m2t{ new double[m2.sz * m2.sz], m2.sz };
+    for (int i = 0; i < m2t.sz; i++) {
+        for (int j = 0; j < m2t.sz; j++) {
+            m2t.data[i * mres.sz + j] = m2.data[j * mres.sz + i]; // ??
+        }
+    }
+
     for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
         int start_row = t * rows_per_thread; // Thread Start row - LM 
         int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row - LM
 
         //Creates threads to push to the vector
-        threads.push_back(std::thread([=, &mres, &m1, &m2]() {
+        threads.push_back(std::thread([=, &mres, &m1, &m2t]() {
             for (int i = start_row; i < end_row; i++) { // Rows - LM
                 for (int j = 0; j < mres.sz; j++) { // Collumns - LM
-                    __m128d result = _mm_setzero_pd(); // Initilses the simd register
+                    __m256d result = _mm256_setzero_pd(); // Initilses the simd register
+                    //int counter = 1;
 
                     for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                        __m128d m1_values = _mm_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                        //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                        __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                        __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
-                        __m128 m2_values = _mm_set_ps(
+                        /*__m256d m2_values = _mm256_set_pd(
                             m2.data[(k + 3) * mres.sz + j],
                             m2.data[(k + 2) * mres.sz + j],
                             m2.data[(k + 1) * mres.sz + j],
                             m2.data[k * mres.sz + j]
-                        );
-                        __m128d m2_d_values = _mm_cvtps_pd(m2_values);
-                        __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
+                        );*/
+                        //__m128d m2_d_values = _mm_cvtps_pd(m2_values);
 
-                        result = _mm_add_pd(result, product); // Add the result to the current total
+                        __m256d product = _mm256_mul_pd(m1_values, m2_values); // Multiply the values
+
+                        result = _mm256_add_pd(result, product); // Add the result to the current total
                     }
+
                     double res[4]; // Store the 4 numbers in result back in an array
-                    _mm_store_pd(res, result); // Move the SIMD values into an array called res
+                    _mm256_store_pd(res, result); // Move the SIMD values into an array called res
                     mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
+
+                    /*double res1[2]; // Store the first 2 numbers in result back in an array
+                    double res2[2]; // Store the last 2 numbers in res
+                    if (counter >= 2) {
+                        _mm_store_pd(res1, result); // Move the SIMD values into an array called res
+                    }
+                    else {
+                       _mm_store_pd(res2, result);
+                       if (counter == 4) {
+                           counter = 1;
+                       }
+                    }
+                    counter++;
+
+                    mres.data[i * mres.sz + j] = res1[0] + res1[1] + res2[0] + res2[1]; //Adds the 4 numbers in res to get one number for this position in mres */
                 }
             }
 
@@ -135,30 +159,54 @@ void matmul_parallel_simd(mat& mres, const mat& m1, const mat& m2, int num_threa
 
 // SIMD Multiplication - LM
 void matmul_simd(mat& mres, const mat& m1, const mat& m2) {
+    
+    mat m2t{ new double[m2.sz * m2.sz], m2.sz };
+    for (int i = 0; i < m2t.sz; i++) {
+        for (int j = 0; j < m2t.sz; j++) {
+            m2t.data[i * mres.sz + j] = m2.data[j * mres.sz + i]; // ??
+        }
+    }
+
     // to do
     for (int i = 0; i < mres.sz; i++) { // Go through each rows - LM
         for (int j = 0; j < mres.sz; j++) { // Go through each collumn - LM
-            __m128d result = _mm_setzero_pd(); // Create SIMD Variable that has a starting value of 0
-
+            __m256d result = _mm256_setzero_pd(); // Create SIMD Variable that has a starting value of 0
+            //int counter = 1;
             for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                __m128d m1_values = _mm_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
-                __m128 m2_values = _mm_set_ps(
+                /*__m256d m2_values = _mm256_set_pd(
                     m2.data[(k + 3) * mres.sz + j],
                     m2.data[(k + 2) * mres.sz + j],
                     m2.data[(k + 1) * mres.sz + j],
                     m2.data[k * mres.sz + j]
-                );
+                );*/
                 //converts m2 values to a __m128d (i couldnt find a double equivalent for set ps that took 4 arguments)
-                __m128d m2_d_values = _mm_cvtps_pd(m2_values); 
-                __m128d product = _mm_mul_pd(m1_values, m2_d_values); // Multiply the values
+                //__m128d m2_d_values = _mm_cvtps_pd(m2_values); 
+                __m256d product = _mm256_mul_pd(m1_values, m2_values); // Multiply the values
 
-                result = _mm_add_pd(result, product); // Add the result to the current total 
+                result = _mm256_add_pd(result, product); // Add the result to the current total 
             }
-            double res[4]; // Store the 4 numbers in result back in an array
-            _mm_store_pd(res, result); // Move the SIMD values into an array called res
-            mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
+
+            /*double res1[2]; // Store the first 2 numbers in result back in an array
+            double res2[2]; // Store the last 2 numbers in res
+            if (counter >= 2) {
+                _mm_store_pd(res1, result); // Move the SIMD values into an array called res
+            }
+            else {
+                _mm_store_pd(res2, result);
+                if (counter == 4) {
+                    counter = 1;
+                }
+            }
+            counter++;*/
+
+           // mres.data[i * mres.sz + j] = res1[0] + res1[1] + res2[0] + res2[1]; //Adds the 4 numbers in res to get one number for this position in mres
+
+           double res[4]; // Store the 4 numbers in result back in an array
+           _mm256_store_pd(res, result); // Move the SIMD values into an array called res
+           mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
 
             // Debug: print the result for each element
             //std::cout << "mres[" << i << "][" << j << "] = " << mres.data[i * mres.sz + j] << std::endl;
@@ -192,7 +240,7 @@ void init_mat(mat &m) {
   for (int i = 0; i < m.sz; i++) {
     for (int j = 0; j < m.sz; j++) {
         m.data[i * m.sz + j] = count++;
-        if (count == 5)
+        if (count == 1)
             count = 1;
     }
   }
