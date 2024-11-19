@@ -245,6 +245,7 @@ int main(int argc, char *argv[])
       std::cout << "double precision timing "<< i + 1<<": " <<d << "\n";
       data[i] = d;
   }
+  std::cout << "double precision average: " << (data[0]+ data[1]+ data[2]+ data[3]+ data[4]+ data[5])/6 << "\n";
   std::cout << "double precision standard deviation: " << standard_deviation(data) << "\n";
   //print_mat(mres);
 
@@ -261,6 +262,7 @@ int main(int argc, char *argv[])
       std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
       data[i] = d;
   }
+  std::cout << "double precision average: " << (data[0] + data[1] + data[2] + data[3] + data[4] + data[5]) / 6 << "\n";
   std::cout << "Simd double precision standard deviation: " << standard_deviation(data) << "\n";
   //print_mat(mres_simd); // Print result of simd - LM
 
@@ -277,6 +279,7 @@ int main(int argc, char *argv[])
       std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
       data[i] = d;
   }
+  std::cout << "double precision average: " << (data[0] + data[1] + data[2] + data[3] + data[4] + data[5]) / 6 << "\n";
   std::cout << "Parallel double precision standard deviation: " << standard_deviation(data) << "\n";
   //print_mat(mres_parallel); // Print result of parallel multiplication - LM
 
@@ -293,6 +296,7 @@ int main(int argc, char *argv[])
       std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
       data[i] = d;
   }
+  std::cout << "double precision average: " << (data[0] + data[1] + data[2] + data[3] + data[4] + data[5]) / 6 << "\n";
   std::cout << "Parallel simd double precision standard deviation: " << standard_deviation(data) << "\n";
  //print_mat(mres_parallel_simd); // Print result of parallel with simd multiplication - LM
 
