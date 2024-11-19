@@ -227,15 +227,29 @@ int main(int argc, char *argv[])
   std::cout << " matrix is " << sizeof(double)*SZ*SZ << " bytes.\n";
 
   init_mat(m); // Initialise Matrix with sample values - LM
+  
+  
+ //Prints the matrix results - LM
+  std::cout << "Initial Matrix:" << std::endl;
+  //print_mat(m); // Print simple multiplication
 
+  std::cout << " " << std::endl;
+  std::cout << "Simple multiplication:" << std::endl;
   // Timing simple multiplication - LM
-  t1 = high_resolution_clock::now();
-  matmul(mres,m,m); // Simple Multiplication - LM
-  t2 = high_resolution_clock::now();
+  for (int i = 0; i <= 5; i++) {
+      t1 = high_resolution_clock::now();
+      matmul(mres, m, m); // Simple Multiplication - LM
+      t2 = high_resolution_clock::now();
 
-  auto d = duration_cast<microseconds>(t2-t1).count();
-  std::cout << "Simple multiplication time: " << d << ' ' << "microseconds.\n";
+      double d = duration_cast<microseconds>(t2 - t1).count();
+      std::cout << "double precision timing "<< i + 1<<": " <<d << "\n";
+      data[i] = d;
+  }
+  std::cout << "double precision standard deviation: " << standard_deviation(data) << "\n";
+  //print_mat(mres);
 
+  std::cout << " " << std::endl;
+  std::cout << "Simd:" << std::endl;
   // Timing SIMD - LM
   for (int i = 0; i <= 5; i++) {
 
@@ -244,44 +258,42 @@ int main(int argc, char *argv[])
       t2 = high_resolution_clock::now();
 
       double d = duration_cast<microseconds>(t2 - t1).count();
+      std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
       data[i] = d;
   }
-  std::cout << standard_deviation(data) << "\n";
-  //std::cout << "Simd multiplication time: " << d << ' ' << "microseconds.\n";
-
-  // Timing Parallel Multiplication (Original) - LM
-  int num_threads = 4; // Num of threads - LM
-  t1 = high_resolution_clock::now();
-  matmul_parallel(mres_parallel, m, m, num_threads); // Parallel Multiplication - LM
-  t2 = high_resolution_clock::now();
-
-  d = duration_cast<microseconds>(t2 - t1).count();
-  std::cout << "Parallel multiplication time with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
-
-  // Timing Parallel Multiplication with simd - LM
-  //int num_threads = 4; // Duplicate - LM
-  t1 = high_resolution_clock::now();
-  matmul_parallel_simd_double(mres_parallel_simd, m, m, num_threads); // Parallel Multiplication - LM
-  t2 = high_resolution_clock::now();
-
-  d = duration_cast<microseconds>(t2 - t1).count();
-  std::cout << "Parallel simd multiplication time with " << num_threads << " threads: " << d << ' ' << "microseconds.\n";
-  
-  //Prints the matrix results - LM
-
-  std::cout << "Initial Matrix:" << std::endl;
-  //print_mat(m); // Print simple multiplication
-
-  std::cout << "Simple multiplication:" << std::endl;
-  //print_mat(mres);
-
-  std::cout << "Simd:" << std::endl;
+  std::cout << "Simd double precision standard deviation: " << standard_deviation(data) << "\n";
   //print_mat(mres_simd); // Print result of simd - LM
 
+  std::cout << " " << std::endl;
   std::cout << "Parallel:" << std::endl;
+  // Timing Parallel Multiplication (Original) - LM
+  int num_threads = 4; // Num of threads - LM
+  for (int i = 0; i <= 5; i++) {
+      t1 = high_resolution_clock::now();
+      matmul_parallel(mres_parallel, m, m, num_threads); // Parallel Multiplication - LM
+      t2 = high_resolution_clock::now();
+
+      double d = duration_cast<microseconds>(t2 - t1).count();
+      std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
+      data[i] = d;
+  }
+  std::cout << "Parallel double precision standard deviation: " << standard_deviation(data) << "\n";
   //print_mat(mres_parallel); // Print result of parallel multiplication - LM
 
+  std::cout << " " << std::endl;
   std::cout << "Parallel with Simd:" << std::endl;
+  // Timing Parallel Multiplication with simd - LM
+//int num_threads = 4; // Duplicate - LM
+  for (int i = 0; i <= 5; i++) {
+      t1 = high_resolution_clock::now();
+      matmul_parallel_simd_double(mres_parallel_simd, m, m, num_threads); // Parallel Multiplication - LM
+      t2 = high_resolution_clock::now();
+
+      double d = duration_cast<microseconds>(t2 - t1).count();
+      std::cout << "double precision timing " << i + 1 << ": " << d << "\n";
+      data[i] = d;
+  }
+  std::cout << "Parallel simd double precision standard deviation: " << standard_deviation(data) << "\n";
  //print_mat(mres_parallel_simd); // Print result of parallel with simd multiplication - LM
 
 
