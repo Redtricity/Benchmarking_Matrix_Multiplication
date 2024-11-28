@@ -27,9 +27,6 @@ struct mat
   double *data;
   const size_t sz; 
 
-  float* s_data;
-  const size_t S_sz;
-
   bool operator==(const mat &rhs) const
   {
     bool b_ret = true;
@@ -47,6 +44,28 @@ struct mat
   }
 };
 
+struct Smat
+{
+    float* s_data;
+    const size_t S_sz; // Matrix size - LM
+
+    bool operator==(const Smat& rhs) const
+    {
+        bool b_ret = true;
+        const float tolerance = 0.1f;
+
+        // Checks if two matrices are equal - LM
+        for (int i = 0; i < S_sz; i++) {
+            for (int j = 0; j < S_sz; j++) {
+                const float abs_diff = std::abs(this->s_data[i * S_sz + j] - rhs.s_data[i * S_sz + j]);
+                b_ret = b_ret && (abs_diff < tolerance);
+            }
+        }
+
+        return b_ret;
+    }
+};
+
 void Transpose_Double(const mat &m2, mat &mres, mat m2t) {
     for (int i = 0; i < m2t.sz; i++) {
         for (int j = 0; j < m2t.sz; j++) {
@@ -55,7 +74,7 @@ void Transpose_Double(const mat &m2, mat &mres, mat m2t) {
     }
 }
 
-void Transpose_Single(const mat& m2, mat& S_mres, mat m2t) {
+void Transpose_Single(const Smat& m2, Smat& S_mres, Smat m2t) {
     for (int i = 0; i < m2t.S_sz; i++) {
         for (int j = 0; j < m2t.S_sz; j++) {
             m2t.s_data[i * S_mres.S_sz + j] = m2.s_data[j * S_mres.S_sz + i];
@@ -66,7 +85,7 @@ void Transpose_Single(const mat& m2, mat& S_mres, mat m2t) {
 #pragma region Simple multiplication
 
 //Single
-void S_matmul(mat& S_mres, const mat& S_m1, const mat& S_m2)
+void S_matmul(Smat& S_mres, const Smat& S_m1, const Smat& S_m2)
 {
     // Multiplies and adds two Matrices
     for (int i = 0; i < S_mres.S_sz; i++) { // Rows - LM
@@ -98,7 +117,7 @@ void matmul(mat& mres, const mat& m1, const mat& m2)
 #pragma region Parallel Multiplication
 
 //Single
-void S_matmul_parallel(mat& S_mres, const mat& S_m1, const mat& S_m2, int num_threads) {
+void S_matmul_parallel(Smat& S_mres, const Smat& S_m1, const Smat& S_m2, int num_threads) {
     int rows_per_thread = S_mres.S_sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
 
     std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
@@ -158,10 +177,13 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
 #pragma region Parallel with SIMD Multiplication
 
 //Single
-void matmul_parallel_simd(mat& S_mres, const mat& m1, const mat& m2, int num_threads) {
+void matmul_parallel_simd(Smat& S_mres, const Smat& m1, const Smat& m2, int num_threads) {
     int rows_per_thread = S_mres.S_sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
 
     std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+
+    Smat m2t{ new float[m2.S_sz * m2.S_sz], m2.S_sz };
+    Transpose_Single(m2, S_mres, m2t);
 
     for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
         int start_row = t * rows_per_thread; // Thread Start row - LM 
@@ -174,8 +196,8 @@ void matmul_parallel_simd(mat& S_mres, const mat& m1, const mat& m2, int num_thr
                     __m128 result = _mm_setzero_ps(); // Initilses the simd register
 
                     for (int k = 0; k < S_mres.S_sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                        __m128 m1_values = _mm_load_ps(&m1.s_data[i * S_mres.S_sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                        __m128 m2_values = _mm_loadu_ps(&m2.s_data[k * S_mres.S_sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                        __m128 m1_values = _mm_loadu_ps(&m1.s_data[i * S_mres.S_sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
+                        __m128 m2_values = _mm_loadu_ps(&m2t.s_data[j * S_mres.S_sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
 
                         __m128 product = _mm_mul_ps(m1_values, m2_values); // Multiply the values
 
@@ -245,23 +267,17 @@ void matmul_parallel_simd_double(mat& mres, const mat& m1, const mat& m2, int nu
 #pragma region SIMD Multiplication
 
 //Single
-void S_matmul_simd(mat& S_mres, const mat& m1, const mat& m2) {
-
+void S_matmul_simd(Smat& S_mres, const Smat& m1, const Smat& m2) {
+    Smat m2t{ new float[m2.S_sz * m2.S_sz], m2.S_sz };
+    Transpose_Single(m2, S_mres, m2t);
     for (int i = 0; i < S_mres.S_sz; i++) { // Go through each rows - LM
         for (int j = 0; j < S_mres.S_sz; j++) { // Go through each collumn - LM
             __m128 result = _mm_setzero_ps(); // Create SIMD Variable that has a starting value of 0
 
             for (int k = 0; k < S_mres.S_sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
                 __m128 m1_values = _mm_load_ps(&m1.s_data[i * S_mres.S_sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                //__m128 m2_values = _mm_loadu_ps(&m2.data[k * mres.sz + j]); // Load 4 numners from collum J of matrix m2 into another SIMD register
-
-                __m128 m2_values = _mm_set_ps(
-                    m2.s_data[(k + 3) * S_mres.S_sz + j],
-                    m2.s_data[(k + 2) * S_mres.S_sz + j],
-                    m2.s_data[(k + 1) * S_mres.S_sz + j],
-                    m2.s_data[k * S_mres.S_sz + j]
-                );
-
+                __m128 m2_values = _mm_loadu_ps(&m2t.s_data[j * S_mres.S_sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                
                 __m128 product = _mm_mul_ps(m1_values, m2_values); // Multiply the values
 
                 result = _mm_add_ps(result, product); // Add the result to the current total 
@@ -306,16 +322,15 @@ void matmul_simd_double(mat& mres, const mat& m1, const mat& m2) {
 
 #pragma region Print
 //Single
-void S_print_mat(const mat& m) {
-    for (int i = 0; i < m.S_sz; i++) {
-        for (int j = 0; j < m.S_sz; j++) {
-            std::cout << std::setw(3) << m.s_data[i * m.S_sz + j] << ' ';
+void S_print_mat(const Smat& sm) {
+    for (int i = 0; i < sm.S_sz; i++) {
+        for (int j = 0; j < sm.S_sz; j++) {
+            std::cout << std::setw(3) << sm.s_data[i * sm.S_sz + j] << ' ';
         }
         std::cout << '\n';
     }
     std::cout << '\n';
 }
-
 //Double
 void print_mat(const mat& m) {
     for (int i = 0; i < m.sz; i++) {
@@ -331,7 +346,7 @@ void print_mat(const mat& m) {
 
 #pragma region Initialise Matrix
 //Single
-void S_init_mat(mat& sm) {
+void S_init_mat(Smat& sm) {
     int count = 1;
     for (int i = 0; i < sm.S_sz; i++) {
         for (int j = 0; j < sm.S_sz; j++) {
@@ -382,19 +397,23 @@ double standard_deviation(const std::vector<double>& data)
 #pragma endregion
 
 
-
-
 int main(int argc, char *argv[])
 {
   std::vector<double> data(6);
   std::vector<float> s_data(6);
 
-  unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8 - LM)
+  unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8)
+
   // n.b. these calls to new have no alignment specifications
   mat mres{new double[SZ*SZ],SZ},m{new double[SZ*SZ],SZ},id{new double[SZ*SZ],SZ};
   mat mres_parallel{ new double[SZ * SZ],SZ };
   mat mres_parallel_simd{ new double[SZ * SZ],SZ };
   mat mres_simd{new double[SZ*SZ],SZ};
+
+  Smat Smres{new float[SZ * SZ],SZ }, sm{ new float[SZ * SZ],SZ }, Sid{ new float[SZ * SZ],SZ };
+  Smat Smres_parallel{ new float[SZ * SZ],SZ };
+  Smat Smres_parallel_simd{ new float[SZ * SZ],SZ };
+  Smat Smres_simd{ new float[SZ * SZ],SZ };
 
   using namespace std::chrono;
   using tp_t = time_point<high_resolution_clock>;
@@ -403,11 +422,10 @@ int main(int argc, char *argv[])
   // Matrix description
   std::cout << "Each " << SZ << 'x' << SZ;
   std::cout << " matrix is " << sizeof(double)*SZ*SZ << " bytes.\n";
-
   init_mat(m); // Initialise Matrix with sample values - LM
-  
- //Prints the matrix results - LM
-  std::cout << "Initial Matrix:" << std::endl;
+  S_init_mat(sm);
+  //Prints the matrix results - LM
+  //std::cout << "Initial Matrix:" << std::endl;
  
 //Timing Simple Multiplication
 #pragma region Simple multiplication output 
@@ -416,7 +434,7 @@ int main(int argc, char *argv[])
 #pragma region Single
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      S_matmul(mres, m, m); 
+      S_matmul(Smres, sm, sm); 
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -425,6 +443,7 @@ int main(int argc, char *argv[])
   }
   std::cout << "single precision average: " << (s_data[0] + s_data[1] + s_data[2] + s_data[3] + s_data[4] + s_data[5]) / 6 << "\n";
   std::cout << "single precision standard deviation: " << S_standard_deviation(s_data) << "\n";
+  std::cout << " " << std::endl;
 #pragma endregion
 #pragma region Double
   for (int i = 0; i <= 5; i++) {
@@ -448,7 +467,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i <= 5; i++) {
 
       t1 = high_resolution_clock::now();
-      S_matmul_simd(mres_simd, m, m); // Simd Multiplication - LM
+      S_matmul_simd(Smres_simd, sm, sm); // Simd Multiplication - LM
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -457,6 +476,7 @@ int main(int argc, char *argv[])
   }
   std::cout << "single precision average: " << (s_data[0] + s_data[1] + s_data[2] + s_data[3] + s_data[4] + s_data[5]) / 6 << "\n";
   std::cout << "Simd single precision standard deviation: " << S_standard_deviation(s_data) << "\n";
+  std::cout << " " << std::endl;
 #pragma endregion
 #pragma region Double
   for (int i = 0; i <= 5; i++) {
@@ -481,7 +501,7 @@ int main(int argc, char *argv[])
 #pragma region Single
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      S_matmul_parallel(mres_parallel, m, m, num_threads);
+      S_matmul_parallel(Smres_parallel, sm, sm, num_threads);
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -490,6 +510,7 @@ int main(int argc, char *argv[])
   }
   std::cout << "single precision average: " << (s_data[0] + s_data[1] + s_data[2] + s_data[3] + s_data[4] + s_data[5]) / 6 << "\n";
   std::cout << "Parallel single precision standard deviation: " << S_standard_deviation(s_data) << "\n";
+  std::cout << " " << std::endl;
 #pragma endregion
 #pragma region Double 
   for (int i = 0; i <= 5; i++) {
@@ -513,7 +534,7 @@ int main(int argc, char *argv[])
 #pragma region Single
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      matmul_parallel_simd(mres_parallel_simd, m, m, num_threads); // Parallel Multiplication - LM
+      matmul_parallel_simd(Smres_parallel_simd, sm, sm, num_threads); // Parallel Multiplication - LM
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -522,6 +543,7 @@ int main(int argc, char *argv[])
   }
   std::cout << "single precision average: " << (s_data[0] + s_data[1] + s_data[2] + s_data[3] + s_data[4] + s_data[5]) / 6 << "\n";
   std::cout << "Parallel simd single precision standard deviation: " << S_standard_deviation(s_data) << "\n";
+  std::cout << " " << std::endl;
 #pragma endregion
 #pragma region Double
   for (int i = 0; i <= 5; i++) {
@@ -539,22 +561,41 @@ int main(int argc, char *argv[])
 #pragma endregion
 #pragma endregion
 
+#pragma region Asserts
   // Assert statement to check if both multiplications are the same.
   bool b1 = mres == mres_parallel;
   bool b2 = mres == mres_simd;
   bool b3 = mres == mres_parallel;
   bool b4 = mres == mres_parallel_simd;
-
+  bool b5 = Smres == Smres_parallel;
+  bool b6 = Smres == Smres_simd;
+  bool b7 = Smres == Smres_parallel;
+  bool b8 = Smres == Smres_parallel_simd;
   assert(b1);
   assert(b2);
-  assert(b3); // ok
+  assert(b3); 
   assert(b4);
+  assert(b5);
+  assert(b6);
+  assert(b7);
+  assert(b8);
+#pragma endregion
 
-  delete [] mres.data;
-  delete [] mres_parallel.data;
-  delete [] mres_parallel_simd.data;
-  delete [] mres_simd.data;
-  delete [] m.data;
-  delete [] id.data;
+#pragma region Cleanup
+  delete[] mres.data;
+  delete[] mres_parallel.data;
+  delete[] mres_parallel_simd.data;
+  delete[] mres_simd.data;
+  delete[] m.data;
+  delete[] id.data;
+  delete[] Smres.s_data;
+  delete[] Smres_parallel.s_data;
+  delete[] Smres_parallel_simd.s_data;
+  delete[] Smres_simd.s_data;
+  delete[] sm.s_data;
+  delete[] Sid.s_data;
+#pragma endregion
+
+
   return  0;
 }
