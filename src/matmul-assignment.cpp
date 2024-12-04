@@ -21,7 +21,7 @@ size_t sceLibcHeapSize = SCE_LIBC_HEAP_SIZE_EXTENDED_ALLOC_NO_LIMIT; /* no upper
 #pragma clang diagnostic ignored "-Wc++17-extensions"
 #endif
 
-// Represents a Matrix - LM
+// Represents the Double Precision Matrix 
 struct mat
 {
   double *data;
@@ -32,7 +32,7 @@ struct mat
     bool b_ret = true;
     const double tolerance = 0.1f;
 
-    // Checks if two matrices are equal - LM
+    // Checks if two matrices are equal
     for (int i = 0; i < sz; i++) {
       for (int j = 0; j < sz; j++) {
         const double abs_diff = std::abs(this->data[i*sz+j] - rhs.data[i*sz+j]);
@@ -43,18 +43,18 @@ struct mat
     return b_ret;
   }
 };
-
+// Represents the Single Precision Matrix 
 struct Smat
 {
     float* s_data;
-    const size_t S_sz; // Matrix size - LM
+    const size_t S_sz; // Matrix size 
 
     bool operator==(const Smat& rhs) const
     {
         bool b_ret = true;
         const float tolerance = 0.1f;
 
-        // Checks if two matrices are equal - LM
+        // Checks if two matrices are equal 
         for (int i = 0; i < S_sz; i++) {
             for (int j = 0; j < S_sz; j++) {
                 const float abs_diff = std::abs(this->s_data[i * S_sz + j] - rhs.s_data[i * S_sz + j]);
@@ -66,6 +66,7 @@ struct Smat
     }
 };
 
+// Transpose for Double Precision
 void Transpose_Double(const mat &m2, mat &mres, mat m2t) {
     for (int i = 0; i < m2t.sz; i++) {
         for (int j = 0; j < m2t.sz; j++) {
@@ -73,7 +74,7 @@ void Transpose_Double(const mat &m2, mat &mres, mat m2t) {
         }
     }
 }
-
+// Transpose for Single Precision
 void Transpose_Single(const Smat& m2, Smat& S_mres, Smat m2t) {
     for (int i = 0; i < m2t.S_sz; i++) {
         for (int j = 0; j < m2t.S_sz; j++) {
@@ -88,11 +89,11 @@ void Transpose_Single(const Smat& m2, Smat& S_mres, Smat m2t) {
 void S_matmul(Smat& S_mres, const Smat& S_m1, const Smat& S_m2)
 {
     // Multiplies and adds two Matrices
-    for (int i = 0; i < S_mres.S_sz; i++) { // Rows - LM
-        for (int j = 0; j < S_mres.S_sz; j++) { // Collumns - LM
+    for (int i = 0; i < S_mres.S_sz; i++) { // Rows 
+        for (int j = 0; j < S_mres.S_sz; j++) { // Collumns 
             S_mres.s_data[i * S_mres.S_sz + j] = 0;
-            for (int k = 0; k < S_mres.S_sz; k++) { // Inner - LM
-                S_mres.s_data[i * S_mres.S_sz + j] += S_m1.s_data[i * S_mres.S_sz + k] * S_m2.s_data[k * S_mres.S_sz + j]; // Multiplication and Addition - LM
+            for (int k = 0; k < S_mres.S_sz; k++) { // Inner 
+                S_mres.s_data[i * S_mres.S_sz + j] += S_m1.s_data[i * S_mres.S_sz + k] * S_m2.s_data[k * S_mres.S_sz + j]; // Multiplication and Addition 
             }
         }
     }
@@ -101,12 +102,11 @@ void S_matmul(Smat& S_mres, const Smat& S_m1, const Smat& S_m2)
 // Double
 void matmul(mat& mres, const mat& m1, const mat& m2)
 {
-    // Multiplies and adds two Matrices
-    for (int i = 0; i < mres.sz; i++) { // Rows - LM
-        for (int j = 0; j < mres.sz; j++) { // Collumns - LM
+    for (int i = 0; i < mres.sz; i++) { 
+        for (int j = 0; j < mres.sz; j++) { 
             mres.data[i * mres.sz + j] = 0;
-            for (int k = 0; k < mres.sz; k++) { // Inner - LM
-                mres.data[i * mres.sz + j] += m1.data[i * mres.sz + k] * m2.data[k * mres.sz + j]; // Multiplication and Addition - LM
+            for (int k = 0; k < mres.sz; k++) { 
+                mres.data[i * mres.sz + j] += m1.data[i * mres.sz + k] * m2.data[k * mres.sz + j];
             }
         }
     }
@@ -120,17 +120,17 @@ void matmul(mat& mres, const mat& m1, const mat& m2)
 void S_matmul_parallel(Smat& S_mres, const Smat& S_m1, const Smat& S_m2, int num_threads) {
     int rows_per_thread = S_mres.S_sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
 
-    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+    std::vector<std::thread> threads; // vector to hold the threads
 
-    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
-        int start_row = t * rows_per_thread; // Thread Start row - LM 
-        int end_row = (t == num_threads - 1) ? S_mres.S_sz : (t + 1) * rows_per_thread; // Thread End Row - LM
+    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows 
+        int start_row = t * rows_per_thread; // Thread Start row  
+        int end_row = (t == num_threads - 1) ? S_mres.S_sz : (t + 1) * rows_per_thread; // Thread End Row 
 
         threads.push_back(std::thread([=, &S_mres, &S_m1, &S_m2]() {
-            for (int i = start_row; i < end_row; i++) { // Rows - LM
-                for (int j = 0; j < S_mres.S_sz; j++) { // Collumns - LM
+            for (int i = start_row; i < end_row; i++) {
+                for (int j = 0; j < S_mres.S_sz; j++) {  
                     S_mres.s_data[i * S_mres.S_sz + j] = 0;
-                    for (int k = 0; k < S_mres.S_sz; k++) { // Inner - LM
+                    for (int k = 0; k < S_mres.S_sz; k++) { 
                         S_mres.s_data[i * S_mres.S_sz + j] += S_m1.s_data[i * S_mres.S_sz + k] * S_m2.s_data[k * S_mres.S_sz + j];
                     }
                 }
@@ -146,19 +146,19 @@ void S_matmul_parallel(Smat& S_mres, const Smat& S_m1, const Smat& S_m2, int num
 
 //Double
 void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
-    int rows_per_thread = mres.sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
+    int rows_per_thread = mres.sz / num_threads; 
 
-    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+    std::vector<std::thread> threads; 
 
-    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
-        int start_row = t * rows_per_thread; // Thread Start row - LM 
-        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row - LM
+    for (int t = 0; t < num_threads; t++) { 
+        int start_row = t * rows_per_thread; 
+        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; 
 
         threads.push_back(std::thread([=, &mres, &m1, &m2]() {
-            for (int i = start_row; i < end_row; i++) { // Rows - LM
-                for (int j = 0; j < mres.sz; j++) { // Collumns - LM
+            for (int i = start_row; i < end_row; i++) { 
+                for (int j = 0; j < mres.sz; j++) { 
                     mres.data[i * mres.sz + j] = 0;
-                    for (int k = 0; k < mres.sz; k++) { // Inner - LM
+                    for (int k = 0; k < mres.sz; k++) { 
                         mres.data[i * mres.sz + j] += m1.data[i * mres.sz + k] * m2.data[k * mres.sz + j];
                     }
                 }
@@ -166,7 +166,6 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
             }));
     }
 
-    // Joins all the threads
     for (auto& thread : threads) {
         thread.join();
     }
@@ -178,21 +177,21 @@ void matmul_parallel(mat& mres, const mat& m1, const mat& m2, int num_threads) {
 
 //Single
 void matmul_parallel_simd(Smat& S_mres, const Smat& m1, const Smat& m2, int num_threads) {
-    int rows_per_thread = S_mres.S_sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
+    int rows_per_thread = S_mres.S_sz / num_threads; 
 
-    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+    std::vector<std::thread> threads; 
 
     Smat m2t{ new float[m2.S_sz * m2.S_sz], m2.S_sz };
     Transpose_Single(m2, S_mres, m2t);
 
-    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
-        int start_row = t * rows_per_thread; // Thread Start row - LM 
-        int end_row = (t == num_threads - 1) ? S_mres.S_sz : (t + 1) * rows_per_thread; // Thread End Row - LM
+    for (int t = 0; t < num_threads; t++) { 
+        int start_row = t * rows_per_thread; 
+        int end_row = (t == num_threads - 1) ? S_mres.S_sz : (t + 1) * rows_per_thread; 
 
         //Creates threads to push to the vector
         threads.push_back(std::thread([=, &S_mres, &m1, &m2]() {
-            for (int i = start_row; i < end_row; i++) { // Rows - LM
-                for (int j = 0; j < S_mres.S_sz; j++) { // Collumns - LM
+            for (int i = start_row; i < end_row; i++) { 
+                for (int j = 0; j < S_mres.S_sz; j++) { 
                     __m128 result = _mm_setzero_ps(); // Initilses the simd register
 
                     for (int k = 0; k < S_mres.S_sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
@@ -220,43 +219,41 @@ void matmul_parallel_simd(Smat& S_mres, const Smat& m1, const Smat& m2, int num_
 
 // Double
 void matmul_parallel_simd_double(mat& mres, const mat& m1, const mat& m2, int num_threads) {
-    int rows_per_thread = mres.sz / num_threads; //  8x8 Matrix / 4 threads meaning 1 thread deals with 2 rows
-
-    std::vector<std::thread> threads; // vector to hold the threads - LM (note - maybe use pthread)
+    int rows_per_thread = mres.sz / num_threads; 
+    std::vector<std::thread> threads; 
 
     mat m2t{ new double[m2.sz * m2.sz], m2.sz };
     Transpose_Double(m2, mres, m2t);
 
-    for (int t = 0; t < num_threads; t++) { // Identifys threads to divide the matrix into rows -LM
-        int start_row = t * rows_per_thread; // Thread Start row - LM 
-        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; // Thread End Row - LM
+    for (int t = 0; t < num_threads; t++) { 
+        int start_row = t * rows_per_thread; 
+        int end_row = (t == num_threads - 1) ? mres.sz : (t + 1) * rows_per_thread; 
 
-        //Creates threads to push to the vector
+        
         threads.push_back(std::thread([=, &mres, &m1, &m2t]() {
-            for (int i = start_row; i < end_row; i++) { // Rows - LM
-                for (int j = 0; j < mres.sz; j++) { // Collumns - LM
-                    __m256d result = _mm256_setzero_pd(); // Initilses the simd register
-                    //int counter = 1;
+            for (int i = start_row; i < end_row; i++) { 
+                for (int j = 0; j < mres.sz; j++) { 
+                    __m256d result = _mm256_setzero_pd(); 
 
-                    for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                        __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                        __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+                    for (int k = 0; k < mres.sz; k += 4) {  
+                        __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); 
+                        __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); 
 
-                        __m256d product = _mm256_mul_pd(m1_values, m2_values); // Multiply the values
+                        __m256d product = _mm256_mul_pd(m1_values, m2_values); 
 
-                        result = _mm256_add_pd(result, product); // Add the result to the current total
+                        result = _mm256_add_pd(result, product); 
                     }
 
-                    double res[4]; // Store the 4 numbers in result back in an array
-                    _mm256_store_pd(res, result); // Move the SIMD values into an array called res
-                    mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
+                    double res[4]; 
+                    _mm256_store_pd(res, result); 
+                    mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; 
                 }
             }
 
             }));
     }
 
-    // Joins all the threads
+   
     for (auto& thread : threads) {
         thread.join();
     }
@@ -270,8 +267,8 @@ void matmul_parallel_simd_double(mat& mres, const mat& m1, const mat& m2, int nu
 void S_matmul_simd(Smat& S_mres, const Smat& m1, const Smat& m2) {
     Smat m2t{ new float[m2.S_sz * m2.S_sz], m2.S_sz };
     Transpose_Single(m2, S_mres, m2t);
-    for (int i = 0; i < S_mres.S_sz; i++) { // Go through each rows - LM
-        for (int j = 0; j < S_mres.S_sz; j++) { // Go through each collumn - LM
+    for (int i = 0; i < S_mres.S_sz; i++) { 
+        for (int j = 0; j < S_mres.S_sz; j++) { 
             __m128 result = _mm_setzero_ps(); // Create SIMD Variable that has a starting value of 0
 
             for (int k = 0; k < S_mres.S_sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
@@ -285,9 +282,6 @@ void S_matmul_simd(Smat& S_mres, const Smat& m1, const Smat& m2) {
             float res[4]; // Store the 4 numbers in result back in an array
             _mm_storeu_ps(res, result); // Move the SIMD values into an array called res
             S_mres.s_data[i * S_mres.S_sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
-
-            // Debug: print the result for each element
-            //std::cout << "mres[" << i << "][" << j << "] = " << mres.data[i * mres.sz + j] << std::endl;
         }
     }
 }
@@ -297,23 +291,22 @@ void matmul_simd_double(mat& mres, const mat& m1, const mat& m2) {
     mat m2t{ new double[m2.sz * m2.sz], m2.sz };
     Transpose_Double(m2, mres, m2t);
 
-    // to do
-    for (int i = 0; i < mres.sz; i++) { // Go through each rows - LM
-        for (int j = 0; j < mres.sz; j++) { // Go through each collumn - LM
-            __m256d result = _mm256_setzero_pd(); // Create SIMD Variable that has a starting value of 0
-            //int counter = 1;
-            for (int k = 0; k < mres.sz; k += 4) {  // Go through the Matrix in 4s (SIMD can handle 4 flots at once)
-                __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); // Load 4 numbers from row i of matrix m1 into a SIMD register
-                __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); // Load 4 numners from collum J of matrix m2 into another SIMD register
+    
+    for (int i = 0; i < mres.sz; i++) { 
+        for (int j = 0; j < mres.sz; j++) { 
+            __m256d result = _mm256_setzero_pd(); 
+            for (int k = 0; k < mres.sz; k += 4) {  
+                __m256d m1_values = _mm256_load_pd(&m1.data[i * mres.sz + k]); 
+                __m256d m2_values = _mm256_loadu_pd(&m2t.data[j * mres.sz + k]); 
 
-                __m256d product = _mm256_mul_pd(m1_values, m2_values); // Multiply the values
+                __m256d product = _mm256_mul_pd(m1_values, m2_values); 
 
-                result = _mm256_add_pd(result, product); // Add the result to the current total 
+                result = _mm256_add_pd(result, product); 
             }
 
-            double res[4]; // Store the 4 numbers in result back in an array
-            _mm256_store_pd(res, result); // Move the SIMD values into an array called res
-            mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; //Adds the 4 numbers in res to get one number for this position in mres
+            double res[4]; 
+            _mm256_store_pd(res, result); 
+            mres.data[i * mres.sz + j] = res[0] + res[1] + res[2] + res[3]; 
         }
     }
 }
@@ -404,7 +397,6 @@ int main(int argc, char *argv[])
 
   unsigned int SZ = 1 << 3; // (1 << 10) == 1024 (Matrix size is 8)
 
-  // n.b. these calls to new have no alignment specifications
   mat mres{new double[SZ*SZ],SZ},m{new double[SZ*SZ],SZ},id{new double[SZ*SZ],SZ};
   mat mres_parallel{ new double[SZ * SZ],SZ };
   mat mres_parallel_simd{ new double[SZ * SZ],SZ };
@@ -422,10 +414,9 @@ int main(int argc, char *argv[])
   // Matrix description
   std::cout << "Each " << SZ << 'x' << SZ;
   std::cout << " matrix is " << sizeof(double)*SZ*SZ << " bytes.\n";
-  init_mat(m); // Initialise Matrix with sample values - LM
-  S_init_mat(sm);
-  //Prints the matrix results - LM
-  //std::cout << "Initial Matrix:" << std::endl;
+  init_mat(m); // Initialise Matrix with Double Precision values 
+  S_init_mat(sm);// Initialise Matrix with Single Precision values
+
  
 //Timing Simple Multiplication
 #pragma region Simple multiplication output 
@@ -448,7 +439,7 @@ int main(int argc, char *argv[])
 #pragma region Double
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      matmul(mres, m, m); // Simple Multiplication - LM
+      matmul(mres, m, m); 
       t2 = high_resolution_clock::now();
 
       double d = duration_cast<microseconds>(t2 - t1).count();
@@ -467,7 +458,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i <= 5; i++) {
 
       t1 = high_resolution_clock::now();
-      S_matmul_simd(Smres_simd, sm, sm); // Simd Multiplication - LM
+      S_matmul_simd(Smres_simd, sm, sm); 
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -482,7 +473,7 @@ int main(int argc, char *argv[])
   for (int i = 0; i <= 5; i++) {
 
       t1 = high_resolution_clock::now();
-      matmul_simd_double(mres_simd, m, m); // Simd Multiplication - LM
+      matmul_simd_double(mres_simd, m, m); 
       t2 = high_resolution_clock::now();
 
       double d = duration_cast<microseconds>(t2 - t1).count();
@@ -534,7 +525,7 @@ int main(int argc, char *argv[])
 #pragma region Single
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      matmul_parallel_simd(Smres_parallel_simd, sm, sm, num_threads); // Parallel Multiplication - LM
+      matmul_parallel_simd(Smres_parallel_simd, sm, sm, num_threads); 
       t2 = high_resolution_clock::now();
 
       float d = duration_cast<microseconds>(t2 - t1).count();
@@ -548,7 +539,7 @@ int main(int argc, char *argv[])
 #pragma region Double
   for (int i = 0; i <= 5; i++) {
       t1 = high_resolution_clock::now();
-      matmul_parallel_simd_double(mres_parallel_simd, m, m, num_threads); // Parallel Multiplication - LM
+      matmul_parallel_simd_double(mres_parallel_simd, m, m, num_threads); 
       t2 = high_resolution_clock::now();
 
       double d = duration_cast<microseconds>(t2 - t1).count();
