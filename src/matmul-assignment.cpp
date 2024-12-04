@@ -2,10 +2,10 @@
 #include <iomanip>
 #include <cstring>
 #include <chrono>
-#include <thread> // Multithreading library
-#include <vector> // Vecotr library
-#include <cassert> // Assert
-#include <immintrin.h> // SIMD
+#include <thread> 
+#include <vector> 
+#include <cassert> 
+#include <immintrin.h> 
 #include <numeric>
 #include <cmath>
 #include "stats.hpp"
@@ -20,6 +20,8 @@ size_t sceLibcHeapSize = SCE_LIBC_HEAP_SIZE_EXTENDED_ALLOC_NO_LIMIT; /* no upper
 #if (!defined(_MSC_VER))
 #pragma clang diagnostic ignored "-Wc++17-extensions"
 #endif
+
+// Written by Lara Mcintyre B00418895 and  Chinedum Vincent-Eloagu B00409207
 
 // Represents the Double Precision Matrix 
 struct mat
